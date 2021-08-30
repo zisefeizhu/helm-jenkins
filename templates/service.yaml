@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "jenkins.fullname" . }}
+  namespace: {{ template "jenkins.namespace" . }}
+  labels:
+    {{- include "jenkins.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  {{- with .Values.service }}
+  ports:
+  {{- toYaml .ports | nindent 2 -}}
+  {{ end }}
+  selector:
+    {{- include "jenkins.selectorLabels" . | nindent 4 }}

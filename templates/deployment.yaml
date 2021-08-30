@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "jenkins.fullname" . }}
+  namespace: {{ template "jenkins.namespace" . }}
+  annotations:
+    date: {{ now | htmlDate }}
+  labels:
+    {{- include "jenkins.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "jenkins.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "jenkins.selectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+        - name: {{ .Chart.Name }}-plugins
+          image: "{{ .Values.image.repository }}:{{ .Values.image.baseImageTag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['sh', '-c', tar xf jenkins-plugins.tar.gz && sleep 10 ]
+          securityContext:
+          {{- if .Values.securityContext.enabled }}
+            privileged: {{ .Values.securityContext.privileged }}
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+          {{ end }}
+          volumeMounts:
+          - name: jenkins-plugins
+            mountPath: /plugins
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+          {{- if .Values.securityContext.enabled }}
+            privileged: {{ .Values.securityContext.privileged }}
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+          {{ end }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # command: ['sh', '-c', mkdir -p /var/jenkins_home/plugins/ && cp -af /tmp/plugins/* /var/jenkins_home/plugins/ ]
+          {{- with .Values.containers }}
+          ports:
+            {{- toYaml .ports | nindent 10 -}}
+          {{ end }}
+          {{- if  .Values.startupProbe.enabled }}
+          startupProbe:
+            {{- toYaml .Values.startupProbe.probe | nindent 12 }}
+          {{ end }}
+          {{- if  .Values.livenessProbe.enabled }}
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe.probe | nindent 12 }}
+          {{ end }}
+          {{- if  .Values.readinessProbe.enabled }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe.probe | nindent 12 }}
+          {{ end }}
+          {{- if  .Values.resources.enable }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          {{ end }}
+          volumeMounts:
+            - name: jenkins-plugins
+              mountPath: /var/jenkins_home/plugins
+            {{- if .Values.pvc.enabled }}
+            - name: jenkinshome
+              mountPath: /var/jenkins_home
+            {{- end -}}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        - name: jenkins-plugins
+          emptyDir: { }
+        {{- if .Values.pvc.enabled }}
+        - name: jenkinshome
+          persistentVolumeClaim:
+            claimName: {{ include "jenkins.fullname" . }}
+        {{- end -}}

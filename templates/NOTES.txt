@@ -1,0 +1,26 @@
+1. Get Jenkins user password by running:
+  kubectl exec --namespace {{ template "jenkins.namespace" . }} -it svc/{{ template "jenkins.fullname" . }} -c jenkins -- /bin/cat /var/jenkins_home/secrets/initialAdminPassword
+
+2. Thank you for installing {{ .Chart.Name }}.
+{{- if .Values.pvc.enabled }}
+#################################################################################
+######          Gratifying:  Jenkins has been deployed！！！                #####
+#################################################################################
+{{- else }}
+#################################################################################
+######   WARNING: Persistence is disabled!!! You will lose your data when   #####
+######            the Jenkins pod is terminated.                            #####
+#################################################################################
+{{- end }}
+
+3. Visit your jenkins
+  export NODE_PORT=$(kubectl get --namespace {{ template "jenkins.namespace" . }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ template "jenkins.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ template "jenkins.namespace" . }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo `http://$NODE_IP:$NODE_PORT/login`
+
+4. If you want to remove jenkins helm
+#################################################################################
+######              Please execute the following command                    #####
+######                    helm uninstall  demo-test                         #####
+#################################################################################
+
